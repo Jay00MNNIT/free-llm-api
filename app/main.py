@@ -77,6 +77,7 @@ def signup(body: SignupBody, request: Request):
         raise HTTPException(400, "Please enter a valid email.")
 
     ip, day = client_ip(request), today()
+    print("SIGNUP IP:", ip, "| X-Forwarded-For:", request.headers.get("x-forwarded-for"))
     if signups_from_ip(ip, day) >= MAX_SIGNUPS_PER_IP_PER_DAY:
         raise HTTPException(429, "Too many keys created from your network today. Try again tomorrow.")
     if email_exists(email):
