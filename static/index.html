@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Free LLM API</title>
+    <style>
+        :root { --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#e6edf3;
+                --muted:#8b949e; --accent:#58a6ff; --ok:#3fb950; --err:#f85149; }
+        * { box-sizing: border-box; }
+        body { margin:0; background:var(--bg); color:var(--text); line-height:1.6;
+               font-family: system-ui, "Segoe UI", Arial, sans-serif; }
+        .wrap { max-width:820px; margin:0 auto; padding:40px 20px; }
+        h1 { font-size:2.3rem; margin:0 0 8px; }
+        h2 { font-size:1.2rem; margin:0 0 12px; }
+        .hero { text-align:center; padding:20px 0 30px; }
+        .hero h1 span { color:var(--accent); }
+        .card { background:var(--card); border:1px solid var(--border);
+                border-radius:12px; padding:22px; margin-bottom:18px; }
+        .row { display:flex; gap:10px; flex-wrap:wrap; }
+        input {flex:1; min-width:200px; padding:11px 12px; background:var(--bg); 
+               color:var(--text); border:1px solid var(--border); border-radius:8px; font-size:1rem; }
+        input:focus { outline:2px solid var(--accent); border-color: transparent;
+        button { padding:11px 18px; background:var(--accent); border-color:transparent; }
+                 border-radius:8px; font-weight:600; font-size:1rem; cursor:pointer; }
+        button:hover { filter:brightness(1.1); }
+        button.small { padding:6px 12px; font-size:.85rem; background:var(--border); color:var(--text); }
+        pre, .keybox { background:var(--bg); border:1px solid var(--border); border-radius:8px;
+                       padding:14px; overflow-x:auto; font-size:.88rem; color:#c9d1d9;
+                       font-family: Consolas, "Courier New", monospace; margin:10px 0 0; }
+        .msg { margin-top:12px; min-height:1.2em; }
+        .ok { color:var(--ok); } .err { color:var(--err); }
+        .warn { color:#d29922; font-size:.9rem; margin-top:8px; }
+        .tabs { display:flex; gap:8px; margin-bottom:6px; }
+        .tabs button.active { background:var(--accent); color:#0d1117; }
+        table { width:100%; border-collapse:collapse; font-size:.95rem; }
+        td { padding:8px 4px; border-bottom:1px solid var(--border); }
+        td:first-child { color:var(--muted); width:45%; }
+        footer { text-align:center; color:var(--muted); font-size:.9rem; padding:20px 0; }
+        a { color:var(--accent); text-decoration:none; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+    <div class="hero">
+        <h1>My Free <span>LLM API</span></h1>
+        <p>A free AI API for student and hobby projects. One key, many models, simple limits.</p>
+    </div>
+
+    <div class="card">
+        <h2>1. Get your free key</h2>
+        <div class="row">
+            <input id="email" type="email" placeholder="enter your email">
+            <button onclick="createKey()">Create key</button>
+        </div>
+        <div id="keyMsg" class="msg"></div>
+        <div id="keyArea" style="display:none">
+            <div class="keybox" id="keyBox"></div>
+            <div class="row" style="margin-top:10px"><button class="small" onclick="copyKey()">Copy key</button></div>
+            <div class="warn">Save this key now.It is shown only once.</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>2. use it</h2>
+        <div class="tabs">
+            <button id="tabPy" class="active" onclick="showTab('py')">Python</button>
+            <button id="tabCurl" onclick="showTab('curl')">curl (bash)</button>
+        </div>
+        <pre id="example"></pre>
+        <p style="margin-top:10px">Use <code>"provider": "gemini"</code> or <code>"groq"</code>. If one fails, the other answers automatically.</p>
+    </div>
+
+    <div class="card">
+      <h2>3. Check your usage</h2>
+      <div class="row">
+        <input id="usageKey" placeholder="sk-...">
+        <button onclick="checkUsage()">Check</button>
+      </div>
+      <div id="usageMsg" class="msg"></div>
+    </div>
+
+    <div class="card">
+        <h2>Limits</h2>
+        <table>
+            <tr><td>Requests per minute</td><td>20</td></tr>
+            <tr><td>Requests per day (per key)</td><td>200 (resets at 00:00 UTC)</td></tr>
+            <tr><td>Max tokens per answer</td><td>500</td></tr>
+            <tr><td>Keys per email</td><td>1</td></tr>
+        </table>
+    </div>
+
+    <footer><a href="/docs">Full API docs</a></footer>
+</div>
+
+<script>
+    const $ = id => document.getElementById(id);
+    const BASE = location.origin;
+    let currentKey = "YOUR_KEY";
+    let currentTab = "py";
+
+    function buildExample() {
+        if (currentTab === "py") {
+            return [
+                'import requests',
+                '',
+                'r = requests.post(',
+                '   "' + BASE + '/v1/chat", ',
+                '   headers={"Authorization": "Bearer ' + currentKey + '"}, ',
+                '   json={"provider": "gemini", ',
+                '         "messages": [{"role": "user", "content": "Hello"}]}, ',
+                ')',
+                'print(r.json()["choices"][0]["message"]["content"])'
+            ].join('\n');
+        }
+        return [
+            'curl ' + BASE + '/v1/chat \\',
+            '   -H "Authorization: Bearer ' + currentKey + '" \\',
+            '   -H "Content-Type: application/json" \\',
+            "   -d '{\"provider\":\"gemini\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}]}'"
+        ].join('\n');
+    }
+
+    function showTab(t) {
+        currentTab = t;
+        $('tabPy').className = t === 'py' ? 'active' : '';
+        $('tabCurl').clasName = t === 'curl' ? 'active' : '';
+        $('example').textContent = buildExample();
+    }
+
+    function setMsg(id, text, cls) {
+        const el = $(id);
+        el.textContent = text;
+        el.className = 'msg' + (cls || '');
+    }
+
+    function errorText(d, fallback) {
+        return (d && typeof d.detail === 'string') ? d.detail : fallback;
+    }
+
+    async function createKey() {
+        const email = $('email').value.trim();
+        setMsg('keyMsg', 'Creating your key...');
+        try {
+          const r = await fetch('/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          const d = await r.json();
+          if (!r.ok) {
+            $('keyArea').style.display = 'none';
+            setMsg('keyMsg', errorText(d, 'Could not create a key. Check your email.'), 'err');
+            return;
+          }
+          currentKey = d.api_key;
+          $('keyBox').textContent = d.api_key;
+          $('keyArea').style.display = 'block';
+          $('usageKey').value = d.api_key;
+          setMsg('keyMsg', 'Your key is ready.', 'ok');
+          showTab(currentTab);
+        } catch (e) {
+            setMsg('keyMsg', 'Network error. Please try again.', 'err');
+        }
+    }
+
+    function copyKey() {
+        navigator.clipboard.writeText(currentKey);
+        setMsg('keyMsg', 'Copied!', 'ok');
+    }
+
+    async function checkUsage() {
+        const key = $('usageKey').value.trim();
+        setMsg('usageMsg', 'Checking...');
+        try {
+          const r = await fetch('/v1/usage', { headers: { 'Authorization': 'Bearer ' + key} });
+          const d = await r.json();
+          if (!r.ok) { setmsg('usageMsg', errorText(d, 'Invlaid key.'), 'err'); return; }
+          setMsg('usageMsg', 'Used today: ' + d.used_today + ' / ' + d.daily_limit + 
+                 '  (remaining: ' + d.remaining + ')', 'ok');
+        } catch (e) {
+            setMsg('usageMsg', 'Network error. Please try again.', 'err');
+        }
+      }
+
+      showTab('py');
+</script>
+</body>
+</html>
